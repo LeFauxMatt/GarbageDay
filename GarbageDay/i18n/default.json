@@ -1,0 +1,13 @@
+{
+  "config.EnablePrismatic.name": "Enable Prismatic",
+  "config.EnablePrismatic.description": "Add prismatic coloring to garbage cans when they are holding special items.",
+  "config.GarbageDay.name": "Garbage Day",
+  "config.GarbageDay.description": "The day of the week that garbage is collected.",
+  "config.GarbageDay.Sunday": "Sunday",
+  "config.GarbageDay.Monday": "Monday",
+  "config.GarbageDay.Tuesday": "Tuesday",
+  "config.GarbageDay.Wednesday": "Wednesday",
+  "config.GarbageDay.Thursday": "Thursday",
+  "config.GarbageDay.Friday": "Friday",
+  "config.GarbageDay.Saturday": "Saturday"
+}

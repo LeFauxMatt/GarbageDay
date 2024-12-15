@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="..\FauxCore\FauxCommon\Common.targets" />
+  <Import Project="..\FauxCore\FauxCommon\FauxCommon.projitems" Label="Shared" />
+
+  <PropertyGroup>
+    <Name>Garbage Day</Name>
+    <Description>Turns the town trash cans into chests.</Description>
+    <Version>3.2.0</Version>
+    <EnableHarmony>true</EnableHarmony>
+    <RootNamespace>LeFauxMods.GarbageDay</RootNamespace>
+    <UniqueId>furyx639.GarbageDay</UniqueId>
+    <UpdateKeys>Nexus:8204, CurseForge:871837, ModDrop:1547204, GitHub:LeFauxMatt/GarbageDay</UpdateKeys>
+    <RepositoryUrl>https://github.com/LeFauxMatt/GarbageDay</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Pathoschild.Stardew.ModTranslationClassBuilder" Version="2.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <SMAPIDependency Include="furyx639.ExpandedStorage" Version="3.2.0" required="true" />
+    <SMAPIDependency Include="spacechase0.GenericModConfigMenu" Version="1.14.1" required="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ContentPacks Include="[CP] Garbage Can" />
+  </ItemGroup>
+
+</Project>

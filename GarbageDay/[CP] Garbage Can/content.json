@@ -1,0 +1,36 @@
+{
+  "Format": "2.4.0",
+  "Changes": [
+    // Add Object
+    {
+      "LogName": "Load Garbage Can Object",
+      "Action": "EditData",
+      "Target": "Data/BigCraftables",
+      "Entries": {
+        "{{ModId}}_GarbageCan": {
+          "Name": "Garbage Can",
+          "DisplayName": "{{i18n: GarbageCan.name}}",
+          "Description": "{{i18n: GarbageCan.description}}",
+          "Texture": "{{InternalAssetKey: assets/GarbageCan.png}}",
+          "Fragility": 2,
+          "CustomFields": {
+            // Expanded Storage Data
+            "furyx639.ExpandedStorage/Enabled": "true",
+            "furyx639.ExpandedStorage/Frames": "3",
+            "furyx639.ExpandedStorage/CloseNearbySound": "trashcanlid",
+            "furyx639.ExpandedStorage/OpenNearby": "true",
+            "furyx639.ExpandedStorage/OpenNearbySound": "trashcanlid",
+            "furyx639.ExpandedStorage/OpenSound": "trashcan",
+            "furyx639.ExpandedStorage/PlayerColor": "true",
+            "furyx639.ExpandedStorage/TintOverride": "#000000",
+            // Better Chests Data
+            "furyx639.BetterChests/HslColorPicker": "Disabled",
+            "furyx639.BetterChests/ResizeChest": "Small",
+            "furyx639.BetterChests/ResizeChestCapacity": "9"
+          }
+        }
+      }
+    },
+  ],
+  "$schema": "https://smapi.io/schemas/content-patcher.json"
+}
