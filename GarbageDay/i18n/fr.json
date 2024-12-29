@@ -1,0 +1,13 @@
+{
+  "config.EnablePrismatic.name": "Coloration prismatique",
+  "config.EnablePrismatic.description": "Ajoutez une coloration prismatique aux poubelles lorsqu'elles contiennent des objets spéciaux.",
+  "config.GarbageDay.name": "Jour de ramassage des déchets",
+  "config.GarbageDay.description": "Le jour de la semaine où les déchets sont collectés.",
+  "config.GarbageDay.Sunday": "Dimanche",
+  "config.GarbageDay.Monday": "Lundi",
+  "config.GarbageDay.Tuesday": "Mardi",
+  "config.GarbageDay.Wednesday": "Mercredi",
+  "config.GarbageDay.Thursday": "Jeudi",
+  "config.GarbageDay.Friday": "Vendredi",
+  "config.GarbageDay.Saturday": "Samedi"
+}
