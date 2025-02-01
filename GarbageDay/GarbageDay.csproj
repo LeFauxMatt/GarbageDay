@@ -6,7 +6,7 @@
   <PropertyGroup>
     <Name>Garbage Day</Name>
     <Description>Turns the town trash cans into chests.</Description>
-    <Version>3.2.1-beta.1</Version>
+    <Version>3.3.0-beta.1</Version>
     <RootNamespace>LeFauxMods.GarbageDay</RootNamespace>
     <UniqueId>furyx639.GarbageDay</UniqueId>
     <UpdateKeys>Nexus:8204, CurseForge:871837, ModDrop:1547204, GitHub:LeFauxMatt/GarbageDay</UpdateKeys>
