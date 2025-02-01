@@ -1,86 +1,48 @@
 # Garbage Day
 
-Stardew Valley mod which turns garbage cans into storages. Trash will build up
-in them randomly throughout the week.
-Once a week on garbage day, they'll be cleared out.
+Stardew Valley mod which turns garbage cans into special chests. Trash builds up
+every day, and on garbage day is it cleared out.
 
-## Contents
+## Table of Contents
 
-* [Configurations](#configurations)
-* [Customization](#customization)
-* [Translations](#translations)
-* [Credits](#credits)
+- [Garbage Day](#garbage-day)
+  - [Table of Contents](#table-of-contents)
+  - [Configurations](#configurations)
+  - [Features](#features)
+  - [Translations](#translations)
 
 ## Configurations
 
 For ease of use, it is recommended to set config options
-from [Generic Mod Config Menu](https://www.nexusmods.com/stardewvalley/mods/5098).
+from [Generic Mod Config
+Menu](https://www.nexusmods.com/stardewvalley/mods/5098).
 
-| Config     | Description                      | Default Value | Other Value(s)       |
-|:-----------|:---------------------------------|---------------|:---------------------|
-| GarbageDay | The day that garbage is cleared. | `"Monday"`    | Any day of the week. |
+![Config Menu](docs/config-menu.png)
 
-## Customization
+## Features
 
-Integration with GarbageDay is possible
-using [Content Patcher](https://github.com/Pathoschild/StardewMods/blob/develop/ContentPatcher/docs/author-guide.md).
+Items will collect daily in the garbage can.
 
-### Map
+![Garbage Can](docs/garbage-can.png)
 
-Add Garbage Cans to maps.
+You can retrieve the items any day up until garbage day.
 
-Map Property: `Action: Garbage [Which Can]`
-
-`[Which Can]` needs a loot entry for items.
-
-### Loot
-
-Customize loot items for each Garbage Can.
-
-**Target** `furyx639.GarbageDay/Loot`
-
-TBD:
-
-### Texture
-
-Replace the Garbage Can texture.
-
-**Target** `furyx639.GarbageDay/Texture`
-
-```jsonc
-{
-  "Format": "1.25.0",
-  "Changes": [
-    {
-      "Action": "EditImage",
-      "Target": "furyx639.GarbageDay/Texture",
-      "FromFile": "assets/MyTexture.png",
-    },
-  ]
-}
-```
+![Garbage Items](docs/garbage-items.png)
 
 ## Translations
 
-See [here](i18n/default.json) for the base translation file.
+❌️ = Not Translated, ❔ = Incomplete, ✔️ = Complete
 
-| Language   | Status            | Credits |
-|:-----------|:------------------|:--------|
-| Chinese    | ❌️ Not Translated |         |
-| French     | ❌️ Not Translated |         |
-| German     | ❌️ Not Translated |         |
-| Hungarian  | ❌️ Not Translated |         |
-| Italian    | ❌️ Not Translated |         |
-| Japanese   | ❌️ Not Translated |         |
-| Korean     | ❌️ Not Translated |         |
-| Portuguese | ❌️ Not Translated |         |
-| Russian    | ❌️ Not Translated |         |
-| Spanish    | ❌️ Not Translated |         |
-| Turkish    | ❌️ Not Translated |         |
-
-# Credits
-
-Item Repository code was sourced
-from [CJB Item Spawner](https://github.com/CJBok/SDV-Mods/tree/master/CJBItemSpawner).
-
-Garbage Can spritesheet was created by 6480.
+|            |         Garbage Day          |                Garbage Can                 |
+| :--------- | :--------------------------: | :----------------------------------------: |
+| Chinese    | [❌️](GarbageDay/i18n/zh.json) | [✔️](<GarbageDay/Garbage Can/i18n/zh.json>) |
+| French     | [❔](GarbageDay/i18n/fr.json) | [✔️](<GarbageDay/Garbage Can/i18n/fr.json>)  |
+| German     | [❌️](GarbageDay/i18n/de.json) | [❌️](<GarbageDay/Garbage Can/i18n/de.json>)  |
+| Hungarian  | [❌️](GarbageDay/i18n/hu.json) | [❌️](<GarbageDay/Garbage Can/i18n/hu.json>)  |
+| Italian    | [❌️](GarbageDay/i18n/it.json) | [❌️](<GarbageDay/Garbage Can/i18n/it.json>)  |
+| Japanese   | [❌️](GarbageDay/i18n/ja.json) | [❌️](<GarbageDay/Garbage Can/i18n/ja.json>)  |
+| Korean     | [❌️](GarbageDay/i18n/ko.json) | [❌️](<GarbageDay/Garbage Can/i18n/ko.json>) |
+| Portuguese | [❌️](GarbageDay/i18n/pt.json) | [❌️](<GarbageDay/Garbage Can/i18n/pt.json>)  |
+| Russian    | [❌️](GarbageDay/i18n/ru.json) | [❌️](<GarbageDay/Garbage Can/i18n/ru.json>)  |
+| Spanish    | [❌️](GarbageDay/i18n/es.json) | [❌️](<GarbageDay/Garbage Can/i18n/es.json>)  |
+| Turkish    | [❌️](GarbageDay/i18n/tr.json) | [❌️](<GarbageDay/Garbage Can/i18n/tr.json>)  |

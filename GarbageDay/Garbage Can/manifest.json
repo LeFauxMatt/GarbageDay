@@ -1,0 +1,24 @@
+{
+  "$schema": "https://smapi.io/schemas/manifest.json",
+  "UniqueID": "furyx639.GarbageCan",
+  "Name": "Garbage Can",
+  "Author": "furyx639",
+  "Version": "3.2.1-beta.1",
+  "Description": "Adds a garbage can chest to the game.",
+  "ContentPackFor": {
+    "UniqueID": "Pathoschild.ContentPatcher"
+  },
+  "Dependencies": [
+    {
+      "UniqueID": "furyx639.ExpandedStorage",
+      "MinimumVersion": "3.0.0",
+      "IsRequired": true
+    }
+  ],
+  "UpdateKeys": [
+    "Nexus:8204",
+    "CurseForge:871837",
+    "ModDrop:1547204",
+    "GitHub:LeFauxMatt/GarbageDay"
+  ]
+}

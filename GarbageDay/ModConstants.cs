@@ -1,8 +1,10 @@
 namespace LeFauxMods.GarbageDay;
 
-internal static class Constants
+internal static class ModConstants
 {
     public const string DoubleMegaSound = "explosion";
+
+    public const string GlobalInventoryId = GlobalInventoryPrefix + "AllCans";
 
     public const string GlobalInventoryPrefix = ModId + "-";
 
@@ -17,6 +19,8 @@ internal static class Constants
     public const string ModDataPlaySound = ModId + "/PlaySound";
 
     public const string ModDataSpecialItem = ModId + "/SpecialItem";
+
+    public const string ModDataWhichCan = ModId + "/WhichCan";
 
     public const string ModId = "furyx639.GarbageDay";
 
