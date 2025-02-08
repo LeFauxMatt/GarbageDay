@@ -1,11 +1,8 @@
-namespace LeFauxMods.GarbageDay;
-
-using Common.Integrations.GenericModConfigMenu;
-using Common.Utilities;
+using LeFauxMods.Common.Utilities;
+using LeFauxMods.GarbageDay.Services;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI.Events;
-using StardewModdingAPI.Utilities;
 using StardewValley.Characters;
 using StardewValley.Extensions;
 using StardewValley.GameData.GarbageCans;
@@ -14,29 +11,84 @@ using StardewValley.Objects;
 using xTile;
 using xTile.Dimensions;
 
+namespace LeFauxMods.GarbageDay;
+
 /// <inheritdoc />
 internal sealed class ModEntry : Mod
 {
-    private readonly Dictionary<IAssetName, Dictionary<Vector2, string>> allCans = new();
-    private readonly PerScreen<NPC?> currentNpc = new();
-    private readonly HashSet<string> lootAdded = new(StringComparer.OrdinalIgnoreCase);
-
-    private ModConfig config = null!;
-    private IReflectedField<Multiplayer> multiplayer = null!;
+    private bool wasFestival;
 
     /// <inheritdoc />
     public override void Entry(IModHelper helper)
     {
         // Init
-        I18n.Init(this.Helper.Translation);
-        this.config = this.Helper.ReadConfig<ModConfig>();
-        this.multiplayer = this.Helper.Reflection.GetField<Multiplayer>(typeof(Game1), "multiplayer");
+        I18n.Init(helper.Translation);
+        ModState.Init(helper);
+        Log.Init(this.Monitor, ModState.Config);
 
         // Events
-        this.Helper.Events.Content.AssetRequested += this.OnAssetRequested;
-        this.Helper.Events.Content.AssetsInvalidated += this.OnAssetsInvalidated;
-        this.Helper.Events.Display.MenuChanged += this.OnMenuChanged;
-        this.Helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
+        helper.Events.Content.AssetRequested += OnAssetRequested;
+        helper.Events.Content.AssetsInvalidated += OnAssetsInvalidated;
+        helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
+        helper.Events.GameLoop.ReturnedToTitle += this.OnReturnedToTitle;
+        helper.Events.GameLoop.SaveLoaded += this.OnSaveLoaded;
+
+        if (!Context.IsMainPlayer)
+        {
+            return;
+        }
+
+        helper.Events.GameLoop.DayEnding += this.OnDayEnding;
+        helper.Events.GameLoop.DayStarted += this.OnDayStarted;
+    }
+
+    private static void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
+    {
+        if (e.NameWithoutLocale.IsEquivalentTo(ModConstants.IconPath))
+        {
+            e.LoadFromModFile<Texture2D>("assets/icons.png", AssetLoadPriority.Exclusive);
+            return;
+        }
+
+        if (!ModState.MapEdits.TryGetValue(e.NameWithoutLocale, out var mapEdit) || e.DataType != typeof(Map))
+        {
+            return;
+        }
+
+        ModState.MapEdits.Remove(e.NameWithoutLocale);
+        e.Edit(asset =>
+        {
+            var map = asset.AsMap().Data;
+            mapEdit(map);
+        }, (AssetEditPriority)int.MaxValue);
+    }
+
+    private static void OnAssetsInvalidated(object? sender, AssetsInvalidatedEventArgs e)
+    {
+        foreach (var assetName in e.NamesWithoutLocale)
+        {
+            if (ModState.ProcessedLocations.ContainsKey(assetName) && !ModState.MapEdits.ContainsKey(assetName))
+            {
+                ModState.ProcessedLocations.Remove(assetName);
+            }
+        }
+    }
+
+    private static void OnMenuChanged(object? sender, MenuChangedEventArgs e)
+    {
+        if (ModState.CurrentNpc is null || e.OldMenu is not ItemGrabMenu { context: Chest chest } ||
+            !chest.GlobalInventoryId.StartsWith(ModConstants.GlobalInventoryPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        Game1.drawDialogue(ModState.CurrentNpc);
+        ModState.CurrentNpc = null;
+    }
+
+    private void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
+    {
+        this.Helper.Events.Display.MenuChanged += OnMenuChanged;
         this.Helper.Events.Input.ButtonPressed += this.OnButtonPressed;
 
         if (!Context.IsMainPlayer)
@@ -44,78 +96,16 @@ internal sealed class ModEntry : Mod
             return;
         }
 
-        this.Helper.Events.GameLoop.DayEnding += this.OnDayEnding;
-        this.Helper.Events.GameLoop.DayStarted += this.OnDayStarted;
+        this.wasFestival = Utility.isFestivalDay(
+            Game1.dayOfMonth == 1 ? 28 : Game1.dayOfMonth - 1,
+            Game1.dayOfMonth == 1 && Game1.seasonIndex == 0 ? Season.Winter : (Season)(Game1.seasonIndex - 1));
     }
 
-    private void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
+    private void OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e)
     {
-        if (e.NameWithoutLocale.IsEquivalentTo(Constants.IconPath))
-        {
-            e.LoadFromModFile<Texture2D>("assets/icons.png", AssetLoadPriority.Exclusive);
-            return;
-        }
-
-        if (e.DataType != typeof(Map))
-        {
-            return;
-        }
-
-        e.Edit(asset =>
-        {
-            var map = asset.AsMap().Data;
-            var layer = map.GetLayer("Buildings");
-            var frontLayer = map.GetLayer("Front");
-            var backLayer = map.GetLayer("Back");
-
-            for (var x = 0; x < layer.LayerWidth; x++)
-            {
-                for (var y = 0; y < layer.LayerHeight; y++)
-                {
-                    var tileLocation = new Location(x, y) * Game1.tileSize;
-                    var tile = layer.PickTile(tileLocation, Game1.viewport.Size);
-                    if (tile is null
-                        || !tile.Properties.TryGetValue("Action", out var property)
-                        || string.IsNullOrWhiteSpace(property))
-                    {
-                        continue;
-                    }
-
-                    var parts = ArgUtility.SplitBySpace(property);
-                    if (parts.Length < 2
-                        || !parts[0].Equals("Garbage", StringComparison.OrdinalIgnoreCase)
-                        || string.IsNullOrWhiteSpace(parts[1]))
-                    {
-                        continue;
-                    }
-
-                    Log.Trace("Garbage can {0} found on map {1} at ({2}, {3}).", parts[1], asset.NameWithoutLocale, x,
-                        y);
-
-                    // Remove base tile
-                    layer.Tiles[x, y] = null;
-
-                    // Remove lid tile
-                    frontLayer.Tiles[x, y - 1] = null;
-
-                    // Add NoPath to tile
-                    backLayer.PickTile(tileLocation, Game1.viewport.Size)?.Properties.Add("NoPath", string.Empty);
-
-                    // Add garbage can
-                    if (!this.allCans.TryGetValue(asset.NameWithoutLocale, out var cansInLocation))
-                    {
-                        cansInLocation = new Dictionary<Vector2, string>();
-                        this.allCans[asset.NameWithoutLocale] = cansInLocation;
-                    }
-
-                    cansInLocation[new Vector2(x, y)] = parts[1];
-                }
-            }
-        }, (AssetEditPriority)int.MaxValue);
+        this.Helper.Events.Display.MenuChanged -= OnMenuChanged;
+        this.Helper.Events.Input.ButtonPressed -= this.OnButtonPressed;
     }
-
-    private void OnAssetsInvalidated(object? sender, AssetsInvalidatedEventArgs e) =>
-        this.allCans.RemoveWhere(kvp => e.NamesWithoutLocale.Any(assetName => assetName.IsEquivalentTo(kvp.Key)));
 
     private void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
     {
@@ -123,7 +113,7 @@ internal sealed class ModEntry : Mod
             || !e.Button.IsActionButton()
             || !Game1.currentLocation.Objects.TryGetValue(e.Cursor.GrabTile, out var obj)
             || obj is not Chest chest
-            || chest.GlobalInventoryId?.StartsWith(Constants.GlobalInventoryPrefix,
+            || chest.GlobalInventoryId?.StartsWith(ModConstants.GlobalInventoryPrefix,
                 StringComparison.OrdinalIgnoreCase) != true)
         {
             return;
@@ -134,16 +124,15 @@ internal sealed class ModEntry : Mod
         if (character is NPC npc and not Horse)
         {
             // Queue up NPC response
-            this.currentNpc.Value = npc;
-            this.multiplayer.GetValue()
-                .globalChatInfoMessage("TrashCan", Game1.player.Name, npc.GetTokenizedDisplayName());
+            ModState.CurrentNpc = npc;
+            ModState.Multiplayer.globalChatInfoMessage("TrashCan", Game1.player.Name, npc.GetTokenizedDisplayName());
             if (npc.Name.Equals("Linus", StringComparison.OrdinalIgnoreCase))
             {
                 npc.doEmote(32);
                 npc.setNewDialogue("Data\\ExtraDialogue:Town_DumpsterDiveComment_Linus", true, true);
 
                 Game1.player.changeFriendship(5, npc);
-                this.multiplayer.GetValue().globalChatInfoMessage("LinusTrashCan");
+                ModState.Multiplayer.globalChatInfoMessage("LinusTrashCan");
             }
             else
             {
@@ -172,23 +161,25 @@ internal sealed class ModEntry : Mod
             }
         }
 
-        if (!chest.modData.ContainsKey(Constants.ModDataChecked))
+        if (!chest.modData.ContainsKey(ModConstants.ModDataChecked))
         {
-            chest.modData[Constants.ModDataChecked] = "true";
-            Game1.stats.Increment("trashCansChecked");
+            chest.modData[ModConstants.ModDataChecked] = "true";
+            _ = Game1.stats.Increment("trashCansChecked");
         }
 
         var items = chest.GetItemsForPlayer();
-        var specialItem = items.FirstOrDefault(item => item.modData.ContainsKey(Constants.ModDataSpecialItem));
+        var specialItem =
+            items.FirstOrDefault(static item => item.modData.ContainsKey(ModConstants.ModDataSpecialItem));
 
         // Drop Item
         switch (specialItem?.QualifiedItemId)
         {
             case "(O)890":
                 var origin = Game1.tileSize * (chest.TileLocation + new Vector2(0.5f, -1));
-                Game1.createItemDebris(specialItem, origin, 2, chest.Location, (int)origin.Y + Game1.tileSize);
-                items.Remove(specialItem);
-                chest.playerChoiceColor.Value = Color.DarkGray;
+                _ = Game1.createItemDebris(specialItem, origin, 2, chest.Location, (int)origin.Y + Game1.tileSize);
+                _ = items.Remove(specialItem);
+                chest.playerChoiceColor.Value = DiscreteColorPicker.getColorFromSelection(1);
+                chest.shakeTimer = 0;
                 return;
             case "(H)66":
                 // Change texture to lidless sprite
@@ -199,116 +190,230 @@ internal sealed class ModEntry : Mod
                 chest.GetMutex()
                     .RequestLock(() =>
                     {
-                        Game1.playSound(Constants.TrashCanSound);
+                        _ = Game1.playSound(ModConstants.TrashCanSound);
                         chest.ShowMenu();
                     });
                 return;
             default:
-                chest.playerChoiceColor.Value = Color.DarkGray;
+                chest.playerChoiceColor.Value = DiscreteColorPicker.getColorFromSelection(20);
                 break;
         }
 
         // Play sound
-        if (chest.modData.TryGetValue(Constants.ModDataPlaySound, out var sound))
+        if (chest.modData.TryGetValue(ModConstants.ModDataPlaySound, out var sound))
         {
             chest.Location.playSound(sound);
-            chest.modData.Remove(Constants.ModDataPlaySound);
+            _ = chest.modData.Remove(ModConstants.ModDataPlaySound);
         }
 
         // Add special item to player inventory
         Game1.player.addItemByMenuIfNecessary(specialItem);
-        items.Remove(specialItem);
+        _ = items.Remove(specialItem);
+        chest.shakeTimer = 0;
     }
 
     private void OnDayEnding(object? sender, DayEndingEventArgs e)
     {
-        this.lootAdded.Clear();
+        // Reset loot state
+        foreach (var chest in ModState.AllCans.OfType<Chest>())
+        {
+            var items = chest.GetItemsForPlayer();
+            chest.modData.Remove(ModConstants.ModDataChecked);
+
+            // If garbage day clear all items
+            if (this.wasFestival || ModState.Config.GarbageDays.Contains(Game1.dayOfMonth))
+            {
+                if (ModState.Config.SkipFestival && Utility.isFestivalDay(Game1.dayOfMonth, Game1.season))
+                {
+                    this.wasFestival = true;
+                }
+                else
+                {
+                    items.Clear();
+                    this.wasFestival = false;
+                    continue;
+                }
+            }
+
+            // Always clear special items
+            _ = items.RemoveWhere(static item => item.modData.ContainsKey(ModConstants.ModDataSpecialItem));
+            items.RemoveEmptySlots();
+        }
 
         // Clear all garbage cans
         Utility.ForEachLocation(location =>
         {
             var assetName = this.Helper.GameContent.ParseAssetName(location.mapPath.Value);
-            if (!this.allCans.TryGetValue(assetName, out var cansInLocation))
+            if (!ModState.ProcessedLocations.TryGetValue(assetName, out var foundCans) || foundCans is null)
             {
                 return true;
             }
 
-            foreach (var (pos, whichCan) in cansInLocation)
+            foreach (var (pos, whichCan) in foundCans)
             {
                 if (!location.Objects.TryGetValue(pos, out var obj) || obj is not Chest)
                 {
                     continue;
                 }
 
-                Log.Trace("Removing garbage can {0} at {1} ({2})", whichCan, location.Name, pos);
-                location.Objects.Remove(pos);
+                Log.Trace("Removing garbage can {0} at {1} ({2}, {3}).",
+                    whichCan,
+                    location.DisplayName,
+                    (int)pos.X,
+                    (int)pos.Y);
+
+                _ = location.Objects.Remove(pos);
             }
 
             return true;
         });
-
-        // Clear all items
-        foreach (var whichCan in DataLoader.GarbageCans(Game1.content).GarbageCans.Keys)
-        {
-            var items = Game1.player.team.GetOrCreateGlobalInventory(Constants.GlobalInventoryPrefix + whichCan);
-
-            // If garbage day clear all items
-            if (Game1.dayOfMonth % 7 == (int)this.config.GarbageDay % 7)
-            {
-                items.Clear();
-                continue;
-            }
-
-            // Always clear the special items
-            items.RemoveWhere(item => item.modData.ContainsKey(Constants.ModDataSpecialItem));
-            items.RemoveEmptySlots();
-        }
     }
 
-    private void OnDayStarted(object? sender, DayStartedEventArgs e) =>
+    private Dictionary<Vector2, string>? ProcessLocation(GameLocation location, IAssetName assetName)
+    {
+        if (ModState.ProcessedLocations.TryGetValue(assetName, out var foundCans))
+        {
+            return foundCans;
+        }
+
+        ModState.ProcessedLocations.Add(assetName, null);
+
+        var layer = location.map.GetLayer("Buildings");
+        if (layer is null)
+        {
+            return null;
+        }
+
+        for (var x = 0; x < layer.LayerWidth; x++)
+        {
+            for (var y = 0; y < layer.LayerHeight; y++)
+            {
+                var tile = new Location(x * Game1.tileSize, y * Game1.tileSize);
+                if (layer.PickTile(tile, Game1.viewport.Size)?.Properties.TryGetValue("Action", out var property) !=
+                    true ||
+                    property is null ||
+                    string.IsNullOrWhiteSpace(property))
+                {
+                    continue;
+                }
+
+                var action = ArgUtility.SplitBySpace(property);
+                if (!ArgUtility.TryGet(action, 0, out var actionType, out _, true, "string actionType") ||
+                    actionType != "Garbage" ||
+                    !ArgUtility.TryGet(action, 1, out var id, out _, true, "string id") ||
+                    string.IsNullOrWhiteSpace(id) ||
+                    ModState.Config.ExcludedGarbage.Contains(id))
+                {
+                    continue;
+                }
+
+                Log.Trace("Garbage can {0} found at {1} ({2}, {3}).", id, location.DisplayName, x, y);
+                foundCans ??= new Dictionary<Vector2, string>();
+                ModState.ProcessedLocations[assetName] ??= foundCans;
+                foundCans.Add(new Vector2(x, y), id);
+            }
+        }
+
+        if (foundCans?.Any() != true)
+        {
+            return foundCans;
+        }
+
+        // Queue map edits
+        ModState.MapEdits.Add(
+            assetName,
+            map =>
+            {
+                foreach (var pos in foundCans.Keys)
+                {
+                    // Remove base tile
+                    try
+                    {
+                        map.GetLayer("Buildings").Tiles[(int)pos.X, (int)pos.Y] = null;
+                    }
+                    catch
+                    {
+                        // ignored
+                    }
+
+                    // Remove lid tile
+                    try
+                    {
+                        map.GetLayer("Front").Tiles[(int)pos.X, (int)pos.Y - 1] = null;
+                    }
+                    catch
+                    {
+                        // ignored
+                    }
+
+                    // Add NoPath to tile
+                    try
+                    {
+                        map.GetLayer("Back")
+                            .PickTile(new Location((int)pos.X * Game1.tileSize, (int)pos.Y * Game1.tileSize),
+                                Game1.viewport.Size)?.Properties
+                            .Add("NoPath", string.Empty);
+                    }
+                    catch
+                    {
+                        // ignored
+                    }
+                }
+            });
+
+        this.Helper.GameContent.InvalidateCache(assetName);
+        return foundCans;
+    }
+
+    private void OnDayStarted(object? sender, DayStartedEventArgs e)
+    {
         Utility.ForEachLocation(location =>
         {
             var assetName = this.Helper.GameContent.ParseAssetName(location.mapPath.Value);
-            if (!this.allCans.TryGetValue(assetName, out var cansInLocation))
+            var foundCans = this.ProcessLocation(location, assetName);
+            if (foundCans is null)
             {
                 return true;
             }
 
-            foreach (var (pos, whichCan) in cansInLocation)
+            foreach (var (pos, whichCan) in foundCans)
             {
                 if (!location.Objects.TryGetValue(pos, out var obj))
                 {
                     Log.Trace("Placing garbage can {0} at {1} ({2})", whichCan, location.Name, pos);
 
-                    var garbageCanItem = (SObject)ItemRegistry.Create($"(BC){Constants.ItemId}");
+                    var garbageCanItem = (SObject)ItemRegistry.Create($"(BC){ModConstants.ItemId}");
                     if (!garbageCanItem.placementAction(
                             location,
                             (int)pos.X * Game1.tileSize,
                             (int)pos.Y * Game1.tileSize,
-                            Game1.player)
-                        || !location.Objects.TryGetValue(pos, out obj))
+                            Game1.player) ||
+                        !location.Objects.TryGetValue(pos, out obj))
                     {
-                        Log.Trace("Failed to place garbage can {0} at {1} ({2})", whichCan, location.Name, pos);
+                        Log.Warn("Failed to place garbage can {0} at {1} ({2})", whichCan, location.Name, pos);
                         continue;
                     }
                 }
 
                 if (obj is not Chest chest ||
-                    !chest.ItemId.Equals(Constants.ItemId, StringComparison.OrdinalIgnoreCase))
+                    !chest.ItemId.Equals(ModConstants.ItemId, StringComparison.OrdinalIgnoreCase))
                 {
-                    Log.Trace("Unrecognized object at garbage can location {0} ({1})", location.Name, pos);
+                    Log.Warn("Unrecognized object {0} found at {1} ({2})", obj.ItemId, location.Name, pos);
                     continue;
                 }
 
-                chest.GlobalInventoryId = Constants.GlobalInventoryPrefix + whichCan;
+                chest.GlobalInventoryId = ModConstants.GlobalInventoryPrefix + whichCan;
                 chest.playerChoiceColor.Value = Color.DarkGray;
+                chest.modData[ModConstants.ModDataName] = whichCan;
 
-                if (!this.lootAdded.Add(whichCan))
+                _ = ModState.AllCans.TryAddBackup(chest, ModConstants.GlobalInventoryPrefix);
+                if (!ModState.AllCans.TryGetBackup(chest, out var lootChest) ||
+                    lootChest.modData.ContainsKey(ModConstants.ModDataChecked))
                 {
                     continue;
                 }
 
-                Log.Trace("Adding loot to garbage can at {0} ({1})", location.Name, pos);
+                Log.Trace("Adding loot for id {0}", whichCan);
                 location.TryGetGarbageItem(
                     whichCan,
                     Game1.player.DailyLuck,
@@ -336,11 +441,12 @@ internal sealed class ModEntry : Mod
                 if (selected.ItemId == "(O)890")
                 {
                     Log.Trace("Special loot was selected {0}", item.Name);
-                    item.modData[Constants.ModDataSpecialItem] = "true";
+                    item.modData[ModConstants.ModDataSpecialItem] = "true";
                     chest.addItem(item);
-                    if (this.config.EnablePrismatic)
+                    if (ModState.Config.EnablePrismatic)
                     {
                         chest.playerChoiceColor.Value = DiscreteColorPicker.getColorFromSelection(1);
+                        chest.shakeTimer = int.MaxValue;
                     }
 
                     continue;
@@ -348,29 +454,32 @@ internal sealed class ModEntry : Mod
 
                 if (selected.IsDoubleMegaSuccess)
                 {
-                    chest.modData[Constants.ModDataPlaySound] = Constants.DoubleMegaSound;
-                    if (this.config.EnablePrismatic)
+                    chest.modData[ModConstants.ModDataPlaySound] = ModConstants.DoubleMegaSound;
+                    if (ModState.Config.EnablePrismatic)
                     {
                         chest.playerChoiceColor.Value = DiscreteColorPicker.getColorFromSelection(1);
+                        chest.shakeTimer = int.MaxValue;
                     }
                 }
                 else if (selected.IsMegaSuccess)
                 {
-                    chest.modData[Constants.ModDataPlaySound] = Constants.MegaSound;
-                    if (this.config.EnablePrismatic)
+                    chest.modData[ModConstants.ModDataPlaySound] = ModConstants.MegaSound;
+                    if (ModState.Config.EnablePrismatic)
                     {
                         chest.playerChoiceColor.Value = DiscreteColorPicker.getColorFromSelection(1);
+                        chest.shakeTimer = int.MaxValue;
                     }
                 }
 
                 if (selected.AddToInventoryDirectly)
                 {
                     Log.Trace("Special loot was selected {0}", item.Name);
-                    item.modData[Constants.ModDataSpecialItem] = "true";
+                    item.modData[ModConstants.ModDataSpecialItem] = "true";
                     chest.addItem(item);
-                    if (this.config.EnablePrismatic)
+                    if (ModState.Config.EnablePrismatic)
                     {
                         chest.playerChoiceColor.Value = DiscreteColorPicker.getColorFromSelection(1);
+                        chest.shakeTimer = int.MaxValue;
                     }
 
                     continue;
@@ -380,80 +489,13 @@ internal sealed class ModEntry : Mod
                 chest.addItem(item);
 
                 // Update color
-                var colors = chest.GetItemsForPlayer().Select(ItemContextTagManager.GetColorFromTags).OfType<Color>()
-                    .ToList();
-                if (!colors.Any())
-                {
-                    continue;
-                }
-
-                var index = garbageRandom.Next(colors.Count);
-                chest.playerChoiceColor.Value = colors[index];
+                chest.playerChoiceColor.Value = DiscreteColorPicker.getColorFromSelection(garbageRandom.Next(2, 20));
             }
 
             return true;
         });
-
-    private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
-    {
-        var gmcm = new GenericModConfigMenuIntegration(this.ModManifest, this.Helper.ModRegistry);
-        if (!gmcm.IsLoaded)
-        {
-            return;
-        }
-
-        var tempConfig = new ModConfig();
-        gmcm.Register(Reset, Save);
-
-        gmcm.Api.AddBoolOption(
-            this.ModManifest,
-            () => tempConfig.EnablePrismatic,
-            value => tempConfig.EnablePrismatic = value,
-            I18n.Config_EnablePrismatic_Name,
-            I18n.Config_EnablePrismatic_Description);
-
-        gmcm.Api.AddNumberOption(
-            this.ModManifest,
-            () => (int)tempConfig.GarbageDay,
-            value => tempConfig.GarbageDay = (DayOfWeek)value,
-            I18n.Config_GarbageDay_Name,
-            I18n.Config_GarbageDay_Description,
-            0,
-            6,
-            1,
-            day => day switch
-            {
-                0 => I18n.Config_GarbageDay_Sunday(),
-                1 => I18n.Config_GarbageDay_Monday(),
-                2 => I18n.Config_GarbageDay_Tuesday(),
-                3 => I18n.Config_GarbageDay_Wednesday(),
-                4 => I18n.Config_GarbageDay_Thursday(),
-                5 => I18n.Config_GarbageDay_Friday(),
-                6 => I18n.Config_GarbageDay_Saturday(),
-                _ => string.Empty
-            });
-
-        void Reset()
-        {
-            tempConfig = this.Helper.ReadConfig<ModConfig>();
-        }
-
-        void Save()
-        {
-            this.Helper.WriteConfig(tempConfig);
-            this.config = this.Helper.ReadConfig<ModConfig>();
-        }
     }
 
-    private void OnMenuChanged(object? sender, MenuChangedEventArgs e)
-    {
-        if (this.currentNpc.Value is null || e.OldMenu is not ItemGrabMenu { context: Chest chest } ||
-            !chest.GlobalInventoryId.StartsWith(Constants.GlobalInventoryPrefix, StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        Game1.drawDialogue(this.currentNpc.Value);
-        this.currentNpc.Value = null;
-    }
+    private void OnGameLaunched(object? sender, GameLaunchedEventArgs e) =>
+        _ = new ConfigMenu(this.Helper, this.ModManifest);
 }

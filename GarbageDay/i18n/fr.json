@@ -1,0 +1,10 @@
+{
+  "config-option.enable-prismatic.name": "Coloration prismatique",
+  "config-option.enable-prismatic.description": "Ajoutez une coloration prismatique aux poubelles lorsqu'elles contiennent des objets spéciaux.",
+  "config-option.excluded-garbage.name": "Excluded Garbage",
+  "config-option.excluded-garbage.descriptions": "Exclude garbage can ids from their garbage can being replaced.",
+  "config-option.garbage-days.name": "Jour de ramassage des déchets",
+  "config-option.garbage-days.description": "Le jour de la semaine où les déchets sont collectés.",
+  "config-option.skip-festival.name": "Skip Festival",
+  "config-option.skip-festival.description": "Skip pickups on festival days (will be collected on the next day)."
+}

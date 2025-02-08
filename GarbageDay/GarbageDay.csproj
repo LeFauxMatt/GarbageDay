@@ -6,8 +6,7 @@
   <PropertyGroup>
     <Name>Garbage Day</Name>
     <Description>Turns the town trash cans into chests.</Description>
-    <Version>3.2.0</Version>
-    <EnableHarmony>true</EnableHarmony>
+    <Version>3.3.0</Version>
     <RootNamespace>LeFauxMods.GarbageDay</RootNamespace>
     <UniqueId>furyx639.GarbageDay</UniqueId>
     <UpdateKeys>Nexus:8204, CurseForge:871837, ModDrop:1547204, GitHub:LeFauxMatt/GarbageDay</UpdateKeys>
@@ -25,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ContentPacks Include="[CP] Garbage Can" />
+    <ContentPacks Include="Garbage Can" />
   </ItemGroup>
 
 </Project>
