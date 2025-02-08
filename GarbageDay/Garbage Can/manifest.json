@@ -3,7 +3,7 @@
   "UniqueID": "furyx639.GarbageCan",
   "Name": "Garbage Can",
   "Author": "furyx639",
-  "Version": "3.3.0-beta.1",
+  "Version": "3.3.0",
   "Description": "Adds a garbage can chest to the game.",
   "ContentPackFor": {
     "UniqueID": "Pathoschild.ContentPatcher"

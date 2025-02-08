@@ -16,11 +16,11 @@ internal static class ModConstants
 
     public const string ModDataChecked = ModId + "/Checked";
 
+    public const string ModDataName = "Pathoschild.ChestsAnywhere/Name";
+
     public const string ModDataPlaySound = ModId + "/PlaySound";
 
     public const string ModDataSpecialItem = ModId + "/SpecialItem";
-
-    public const string ModDataWhichCan = ModId + "/WhichCan";
 
     public const string ModId = "furyx639.GarbageDay";
 

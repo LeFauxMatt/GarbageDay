@@ -404,7 +404,8 @@ internal sealed class ModEntry : Mod
 
                 chest.GlobalInventoryId = ModConstants.GlobalInventoryPrefix + whichCan;
                 chest.playerChoiceColor.Value = Color.DarkGray;
-                chest.modData.Remove(ModConstants.ModDataChecked);
+                chest.modData[ModConstants.ModDataName] = whichCan;
+
                 _ = ModState.AllCans.TryAddBackup(chest, ModConstants.GlobalInventoryPrefix);
                 if (!ModState.AllCans.TryGetBackup(chest, out var lootChest) ||
                     lootChest.modData.ContainsKey(ModConstants.ModDataChecked))
